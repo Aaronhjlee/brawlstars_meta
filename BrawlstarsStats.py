@@ -1,10 +1,13 @@
 import pandas as pd
 import numpy as np
 import json
-from pandas.io.json import json_normalize
+from collections import Counter
+import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly.express as px
+import requests as r
 
 from API_key import *
-import requests as r
 
 
 '''
@@ -22,18 +25,14 @@ class BSdata():
         player_id = []
         names = []
         for i in data['items']:
-            player_id.append(i['tag'])
+            player_id.append(i['tag'][1:])
             names.append(i['name'])
         return player_id, names
 
     def gather_account_info(self):
-        player_id, names = self.top_200()
-        clean_id = []
-        for i in player_id:
-            clean_id.append(i[1:])
-            
+        player_id, names = self.top_200()  
         account_info = []
-        for i in clean_id:
+        for i in player_id:
             temp = (r.get('https://api.brawlstars.com/v1/players/%23' + i, headers=self.headers).json())
             account_info.append(temp)
         return account_info
@@ -45,7 +44,7 @@ class BSdata():
             brawler_names.append(i['name'])
         return brawler_names
 
-    def top_players(self):    
+    def top_trophies(self):    
         account_info = self.gather_account_info()
         trophy_200 = []
         for i in account_info:
@@ -58,7 +57,7 @@ class BSdata():
     def makeDataframe(self):
         player_id, names = self.top_200()
         brawler_names = self.brawler_names()
-        trophy_200 = self.top_players()
+        trophy_200 = self.top_trophies()
         
         df = pd.DataFrame(names, columns=['name'])
         df['id'] = player_id
@@ -66,31 +65,73 @@ class BSdata():
         df = pd.concat([df, df2], axis=1)
         return df
 
+
 '''
-plotting character breakdown
+battle log DATA
 '''
 
-def plot_avg_trophies(df):
-    avg_trophies = df.describe().transpose()[['mean']].reset_index().sort_values('mean', ascending=False)
+class BSbattlelog():
+    
+    def __init__(self, player_id):
+        self.player_id = player_id
 
-    plt.figure(figsize=(16,8))
-    plt.title('Average Trophies per Character', fontsize=30)
-    plt.xlabel('Brawlers', fontsize=20)
-    plt.ylabel('Brawlers', fontsize=20)
     
-    avg = avg_trophies.mean().values[0]
-    mask1 = avg_trophies['mean'] < avg
-    mask2 = avg_trophies['mean'] >= avg
 
-    plt.bar(avg_trophies['index'][mask2], avg_trophies['mean'][mask2], color='green')
-    plt.bar(avg_trophies['index'][mask1], avg_trophies['mean'][mask1], color='red')
-    
-    plt.ylim((550, 850))
-    plt.xticks(fontsize=14, rotation=90)
-    plt.yticks(fontsize=14)
-    
-    plt.plot(avg_trophies['index'], [avg_trophies.mean()]*(len(avg_trophies['index'])), label='Mean={}'.format(round(avg,2)), linestyle='--')
-    plt.legend(fontsize=20)
+
+'''
+plotting DATA
+'''
+
+class BSplot():
+
+    def __init__(self, df, player_id, headers):
+        self.df = df
+        self.player_id = player_id
+        self.headers = headers
+
+    def usage_3v3(self):
+        brawler_list = []
+        for p in self.player_id:
+            data = r.get('https://api.brawlstars.com/v1/players/%23' + p + '/battlelog', headers=headers).json()
+            for i in data['items']:
+                if 'starPlayer' in i['battle']:
+                    for j in i['battle']['teams']:
+                        for k in j:
+                            if p in k['tag']:
+                                brawler_list.append(k['brawler']['name'])
+            
+        d = Counter(brawler_list)
+        df_count = pd.DataFrame.from_dict(d, orient='index').reset_index()
+        df_count.rename(columns={'index': 'brawlers', 0: 'times played'}, inplace=True)
+        return df_count
+
+    def plot_avg_trophies(self):
+        avg_trophies = self.df.describe().transpose()[['mean']].reset_index().sort_values('mean', ascending=False)
+
+        plt.figure(figsize=(16,8))
+        plt.title('Average Trophies per Character', fontsize=30)
+        plt.xlabel('Brawlers', fontsize=20)
+        plt.ylabel('Brawlers', fontsize=20)
+        
+        avg = avg_trophies.mean().values[0]
+        mask1 = avg_trophies['mean'] < avg
+        mask2 = avg_trophies['mean'] >= avg
+
+        plt.bar(avg_trophies['index'][mask2], avg_trophies['mean'][mask2], color='green')
+        plt.bar(avg_trophies['index'][mask1], avg_trophies['mean'][mask1], color='red')
+        
+        plt.ylim((550, 850))
+        plt.xticks(fontsize=14, rotation=90)
+        plt.yticks(fontsize=14)
+        
+        plt.plot(avg_trophies['index'], [avg_trophies.mean()]*(len(avg_trophies['index'])), label='Mean={}'.format(round(avg,2)), linestyle='--')
+        plt.legend(fontsize=20)
+        
+    def plot_brawler_usage(self):
+        df_count = self.usage_3v3()
+        fig = px.pie(df_count, values='times played', names='brawlers')
+        fig.update_layout(title={'text': 'Brawler Usage Rate in Global 200', 'y': 0.95, 'x':0.42, 'xanchor': 'center', 'yanchor': 'top'})
+        fig.show()
 
 
 '''
