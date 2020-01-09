@@ -72,10 +72,71 @@ battle log DATA
 
 class BSbattlelog():
     
-    def __init__(self, player_id):
+    def __init__(self, headers, player_id):
+        self.headers = headers
         self.player_id = player_id
 
-    
+    def usage_3v3(self):
+        GG_wins = []
+        GG_loss = []
+        BB_wins = []
+        BB_loss = []
+        PP_wins = []
+        PP_loss = []
+        for p in self.player_id:
+            data = r.get('https://api.brawlstars.com/v1/players/%23' + p + '/battlelog', headers=self.headers).json()
+            for i in data['items']:
+                if 'starPlayer' in i['battle']:
+                    for j in i['battle']['teams']:
+                        for k in j:
+                            if p in k['tag']:
+                                if i['battle']['result'] == 'victory': 
+                                    if i['event']['mode'] == 'gemGrab':
+                                        GG_wins.append(k['brawler']['name'])
+                                    elif i['event']['mode'] == 'brawlBall':
+                                        BB_wins.append(k['brawler']['name'])
+                                    elif i['event']['mode'] == 'presentPlunder':
+                                        PP_wins.append(k['brawler']['name'])
+                                elif i['battle']['result'] == 'defeat':
+                                    if i['event']['mode'] == 'gemGrab':
+                                        GG_loss.append(k['brawler']['name'])
+                                    elif i['event']['mode'] == 'brawlBall':
+                                        BB_loss.append(k['brawler']['name'])
+                                    elif i['event']['mode'] == 'presentPlunder':
+                                        PP_loss.append(k['brawler']['name'])
+        total_wins = GG_wins+BB_wins+PP_wins
+        total_loss = GG_loss+BB_loss+PP_loss
+        return GG_wins, GG_loss, BB_wins, BB_loss, PP_wins, PP_loss, total_wins, total_loss    
+
+    def makeDataFrame_usage(self):
+        GG_wins, GG_loss, BB_wins, BB_loss, PP_wins, PP_loss, total_wins, total_loss = self.usage_3v3()
+        
+        d = Counter(total_wins)
+        f = Counter(total_loss)
+        df_total = pd.DataFrame.from_dict(d, orient='index').reset_index()
+        df_total.rename(columns={'index': 'brawlers', 0: 'wins'}, inplace=True)
+        df_total['loss'] = df_total['brawlers'].map(f)
+        
+        d = Counter(GG_wins)
+        f = Counter(GG_loss)
+        df_GG = pd.DataFrame.from_dict(d, orient='index').reset_index()
+        df_GG.rename(columns={'index': 'brawlers', 0: 'wins'}, inplace=True)
+        df_GG['loss'] = df_GG['brawlers'].map(f)
+        
+        d = Counter(BB_wins)
+        f = Counter(BB_loss)
+        df_BB = pd.DataFrame.from_dict(d, orient='index').reset_index()
+        df_BB.rename(columns={'index': 'brawlers', 0: 'wins'}, inplace=True)
+        df_BB['loss'] = df_BB['brawlers'].map(f)
+        
+        d = Counter(PP_wins)
+        f = Counter(PP_loss)
+        df_PP = pd.DataFrame.from_dict(d, orient='index').reset_index()
+        df_PP.rename(columns={'index': 'brawlers', 0: 'wins'}, inplace=True)
+        df_PP['loss'] = df_PP['brawlers'].map(f)
+
+        return df_total, df_GG, df_BB, df_PP
+
 
 
 '''
@@ -89,21 +150,21 @@ class BSplot():
         self.player_id = player_id
         self.headers = headers
 
-    def usage_3v3(self):
-        brawler_list = []
-        for p in self.player_id:
-            data = r.get('https://api.brawlstars.com/v1/players/%23' + p + '/battlelog', headers=headers).json()
-            for i in data['items']:
-                if 'starPlayer' in i['battle']:
-                    for j in i['battle']['teams']:
-                        for k in j:
-                            if p in k['tag']:
-                                brawler_list.append(k['brawler']['name'])
+    # def usage_3v3(self):
+    #     brawler_list = []
+    #     for p in self.player_id:
+    #         data = r.get('https://api.brawlstars.com/v1/players/%23' + p + '/battlelog', headers=headers).json()
+    #         for i in data['items']:
+    #             if 'starPlayer' in i['battle']:
+    #                 for j in i['battle']['teams']:
+    #                     for k in j:
+    #                         if p in k['tag']:
+    #                             brawler_list.append(k['brawler']['name'])
             
-        d = Counter(brawler_list)
-        df_count = pd.DataFrame.from_dict(d, orient='index').reset_index()
-        df_count.rename(columns={'index': 'brawlers', 0: 'times played'}, inplace=True)
-        return df_count
+    #     d = Counter(brawler_list)
+    #     df_count = pd.DataFrame.from_dict(d, orient='index').reset_index()
+    #     df_count.rename(columns={'index': 'brawlers', 0: 'times played'}, inplace=True)
+    #     return df_count
 
     def plot_avg_trophies(self):
         avg_trophies = self.df.describe().transpose()[['mean']].reset_index().sort_values('mean', ascending=False)
@@ -128,8 +189,8 @@ class BSplot():
         plt.legend(fontsize=20)
         
     def plot_brawler_usage(self):
-        df_count = self.usage_3v3()
-        fig = px.pie(df_count, values='times played', names='brawlers')
+        df_total, df_GG, df_BB, df_PP = self.makeDataFrame_usage()
+        fig = px.pie(df_total, values='times played', names='brawlers')
         fig.update_layout(title={'text': 'Brawler Usage Rate in Global 200', 'y': 0.95, 'x':0.42, 'xanchor': 'center', 'yanchor': 'top'})
         fig.show()
 
