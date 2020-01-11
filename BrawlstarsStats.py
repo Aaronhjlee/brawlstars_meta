@@ -81,6 +81,12 @@ class BSbattlelog():
         GG_loss = []
         BB_wins = []
         BB_loss = []
+        H_wins = []
+        H_loss = []
+        B_wins = []
+        B_loss = []
+        S_wins = []
+        S_loss = []
         for p in self.player_id:
             data = r.get('https://api.brawlstars.com/v1/players/%23' + p + '/battlelog', headers=self.headers).json()
             for i in data['items']:
@@ -93,45 +99,67 @@ class BSbattlelog():
                                         GG_wins.append(k['brawler']['name'])
                                     elif i['event']['mode'] == 'brawlBall':
                                         BB_wins.append(k['brawler']['name'])
+                                    elif i['event']['mode'] == 'heist':
+                                        H_wins.append(k['brawler']['name'])
+                                    elif i['event']['mode'] == 'bounty':
+                                        B_wins.append(k['brawler']['name'])
+                                    elif i['event']['mode'] == 'siege':
+                                        S_wins.append(k['brawler']['name'])
                                 elif i['battle']['result'] == 'defeat':
                                     if i['event']['mode'] == 'gemGrab':
                                         GG_loss.append(k['brawler']['name'])
                                     elif i['event']['mode'] == 'brawlBall':
                                         BB_loss.append(k['brawler']['name'])
-        total_wins = GG_wins+BB_wins
-        total_loss = GG_loss+BB_loss
-        return GG_wins, GG_loss, BB_wins, BB_loss, total_wins, total_loss    
+                                    elif i['event']['mode'] == 'heist':
+                                        H_loss.append(k['brawler']['name'])
+                                    elif i['event']['mode'] == 'bounty':
+                                        B_loss.append(k['brawler']['name'])
+                                    elif i['event']['mode'] == 'heist':
+                                        S_loss.append(k['brawler']['name'])
+        return GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss    
 
-    def makeDataFrame_usage(self):
-        GG_wins, GG_loss, BB_wins, BB_loss, total_wins, total_loss = self.usage_3v3()
+    def makeDataFrame_usage_3v3(self):
+        GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss = self.usage_3v3()
+        games = [GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss]
+        names = ['GemGrab', 'BrawlBall', 'Heist', 'Bounty', 'Siege']
+        k = []
+        for i in range(0,len(games), 2):
+            if games[i] != [] or games[i+1] != []:
+                d = Counter(games[i])
+                f = Counter(games[i+1])
+                df = pd.DataFrame.from_dict(d, orient='index').reset_index()
+                df.rename(columns={'index': 'brawlers', 0: 'wins'}, inplace=True)
+                df['loss'] = df['brawlers'].map(f)
+                df['total'] = df['wins'] + df['loss']
+                df['winrate'] = round(df['wins']*100 / df['total'], 2)
+                df['mode'] = [names[i//2]]*len(df)
+                k.append(df)
+            else:
+                k.append('No {} games recorded'.format(names[i//2]))
+                print ('No {} games recorded'.format(names[i//2]))
         
-        d = Counter(total_wins)
-        f = Counter(total_loss)
-        df_total = pd.DataFrame.from_dict(d, orient='index').reset_index()
-        df_total.rename(columns={'index': 'brawlers', 0: 'wins'}, inplace=True)
-        df_total['loss'] = df_total['brawlers'].map(f)
-        df_total['total'] = df_total['wins'] + df_total['loss']
-        df_total['winrate'] = round(df_total['wins']*100 / df_total['total'], 2)
-        
-        d = Counter(GG_wins)
-        f = Counter(GG_loss)
-        df_GG = pd.DataFrame.from_dict(d, orient='index').reset_index()
-        df_GG.rename(columns={'index': 'brawlers', 0: 'wins'}, inplace=True)
-        df_GG['loss'] = df_GG['brawlers'].map(f)
-        df_GG['total'] = df_GG['wins'] + df_GG['loss']
-        df_GG['winrate'] = round(df_GG['wins']*100 / df_GG['total'], 2)
+        df = k[0]
+        for i in k:
+            df.append(i)
+        df = k[0].append(k[1:])
+        return df
 
-        d = Counter(BB_wins)
-        f = Counter(BB_loss)
-        df_BB = pd.DataFrame.from_dict(d, orient='index').reset_index()
-        df_BB.rename(columns={'index': 'brawlers', 0: 'wins'}, inplace=True)
-        df_BB['loss'] = df_BB['brawlers'].map(f)
-        df_BB['total'] = df_BB['wins'] + df_BB['loss']
-        df_BB['winrate'] = round(df_BB['wins']*100 / df_BB['total'], 2)
-
-        return df_total, df_GG, df_BB
-
-
+    # def gamemode_pop(self, df):
+    #     GG = Counter(GG_wins+GG_loss)
+    #     BB = Counter(BB_wins+BB_loss)
+    #     H = Counter(H_wins+H_loss)
+    #     B = Counter(B_wins+B_loss)
+    #     S = Counter(S_wins+S_loss)
+    #     temp = [GG, BB, H, B, S]
+    #     names = ['GemGrab', 'BrawlBall', 'Heist', 'Bounty', 'Siege']
+    #     k = []
+    #     for i in zip(temp, names):
+    #         df = pd.DataFrame.from_dict(i[0], orient='index').reset_index()
+    #         df.rename(columns={'index': 'brawlers', 0: 'games'}, inplace=True)
+    #         df['mode'] = [i[1]]*len(i[0])
+    #         k.append(df)
+    #     df_mode = k[0].append(k[1:5])
+    #     return df_mode
 
 '''
 plotting DATA
@@ -139,51 +167,33 @@ plotting DATA
 
 class BSplot():
 
-    def __init__(self, player_id, headers):
-        self.player_id = player_id
-        self.headers = headers
+    def __init__(self):
+        pass
+        
+    def plot_brawler_usage(self, df, mode='global', graph_type='pie'):
+        if graph_type == 'pie':
+            df_group = df.groupby('brawlers').sum()
+            df_group['winrate'] = round(df_group['wins']*100 / df_group['total'], 2)
+            df_group.reset_index(inplace=True)
+            fig = px.pie(df_group, values='total', names='brawlers', hover_data=['winrate'])
+            fig.update_layout(title={'text': 'Brawler Usage Rate in {}'.format(mode), 'y': .95, 'x':0.42, 'xanchor':'center', 'yanchor':'top'})
+            fig.show()
 
-    # def usage_3v3(self):
-    #     brawler_list = []
-    #     for p in self.player_id:
-    #         data = r.get('https://api.brawlstars.com/v1/players/%23' + p + '/battlelog', headers=headers).json()
-    #         for i in data['items']:
-    #             if 'starPlayer' in i['battle']:
-    #                 for j in i['battle']['teams']:
-    #                     for k in j:
-    #                         if p in k['tag']:
-    #                             brawler_list.append(k['brawler']['name'])
+        elif graph_type == 'bar':
+            winrate = df[df['mode']==mode].sort_values('winrate', ascending=False)
+            fig = px.bar(data_frame=winrate, x='brawlers', y='winrate', hover_data=['total'], color='total')
+            fig.update_layout(title={'text': 'Winrate per Brawlers ({})'.format(mode), 'y': 0.90, 'x':0.5, 'xanchor': 'center', 'yanchor': 'top'})
+            fig.show()
             
-    #     d = Counter(brawler_list)
-    #     df_count = pd.DataFrame.from_dict(d, orient='index').reset_index()
-    #     df_count.rename(columns={'index': 'brawlers', 0: 'times played'}, inplace=True)
-    #     return df_count
-
-    def plot_avg_trophies(self, df):
+    def plot_avg_trophies(self, df, df2, mode='global'):
+        df_group = df2.groupby('brawlers').sum()
+        df_group['winrate'] = round(df_group['wins']*100 / df_group['total'], 2)
+        df_group.reset_index(inplace=True)
+        
         avg_trophies = df.describe().transpose()[['mean']].reset_index().sort_values('mean', ascending=False)
-
-        plt.figure(figsize=(16,8))
-        plt.title('Average Trophies per Character', fontsize=30)
-        plt.xlabel('Brawlers', fontsize=20)
-        plt.ylabel('Brawlers', fontsize=20)
-        
-        avg = avg_trophies.mean().values[0]
-        mask1 = avg_trophies['mean'] < avg
-        mask2 = avg_trophies['mean'] >= avg
-
-        plt.bar(avg_trophies['index'][mask2], avg_trophies['mean'][mask2], color='green')
-        plt.bar(avg_trophies['index'][mask1], avg_trophies['mean'][mask1], color='red')
-        
-        plt.ylim((550, 850))
-        plt.xticks(fontsize=14, rotation=90)
-        plt.yticks(fontsize=14)
-        
-        plt.plot(avg_trophies['index'], [avg_trophies.mean()]*(len(avg_trophies['index'])), label='Mean={}'.format(round(avg,2)), linestyle='--')
-        plt.legend(fontsize=20)
-        
-    def plot_brawler_usage(self, df):
-        fig = px.pie(df, values='total', names='brawlers')
-        fig.update_layout(title={'text': 'Brawler Usage Rate in Global 200', 'y': 0.95, 'x':0.42, 'xanchor': 'center', 'yanchor': 'top'})
+        avg_trophies = avg_trophies.merge(df_group, left_on='index', right_on='brawlers').drop('brawlers', axis=1)
+        fig = px.bar(data_frame=avg_trophies, x='index', y='mean', hover_data=['winrate'], color='winrate', range_y=[700,900])
+        fig.update_layout(title={'text': 'Average Trophies per Brawlers ({})'.format(mode), 'y': 0.90, 'x':0.5, 'xanchor': 'center', 'yanchor': 'top'})
         fig.show()
 
 
