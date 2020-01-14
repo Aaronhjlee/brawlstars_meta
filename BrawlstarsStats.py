@@ -35,7 +35,7 @@ class BSdata():
         for p in player_id:
             battle_log_data.append(r.get('https://api.brawlstars.com/v1/players/%23' + p + '/battlelog', headers=headers).json())
             if len(battle_log_data) % 50 == 0:
-                print ('50 battle logs recorded.')
+                print ('{} battle logs recorded.'.format(len(battle_log_data)))
         return battle_log_data
 
     def gather_account_info(self):
@@ -44,6 +44,8 @@ class BSdata():
         for i in player_id:
             temp = (r.get('https://api.brawlstars.com/v1/players/%23' + i, headers=self.headers).json())
             account_info.append(temp)
+            if len(account_info) % 50 == 0:
+                print ('{} account information recorded.'.format(len(account_info)))
         return account_info
 
     def brawler_names(self):
