@@ -72,7 +72,7 @@ class BSdata():
         print ('Making brawler names...')
         brawler_names = self.brawler_names()
         print ('...complete!')
-        print ('Gathering player info...!')
+        print ('Gathering player info...')
         trophy_200 = self.top_trophies()
         print ('...complete!')
         print ('Making battle log data...')
