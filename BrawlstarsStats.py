@@ -92,9 +92,8 @@ battle log DATA
 
 class BSbattlelog():
     
-    def __init__(self, player_id, headers, data):
+    def __init__(self, player_id, data):
         self.player_id = player_id
-        self.headers = headers
         self.data = data
 
     def usage_3v3(self):
@@ -150,7 +149,7 @@ class BSbattlelog():
         for l in zip(self.data, self.player_id):
             for i in l[0]['items']:
                 if 'starPlayer' not in i['battle']:
-                    if i['event']['mode'] != 'duoShowdown' and i['event']['mode'] != 'roboRumble':
+                    if i['event']['mode'] != 'duoShowdown' and i['event']['mode'] != 'roboRumble'  and i['event']['mode'] != 'bigGame':
                         for j in i['battle']['players']:
                             if l[1] in j['tag']:
                                 if i['battle']['rank'] < 5: 
