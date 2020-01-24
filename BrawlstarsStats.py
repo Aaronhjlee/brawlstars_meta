@@ -33,7 +33,7 @@ class BSdata():
         player_id, names = self.top_200()
         battle_log_data = []
         for p in player_id:
-            battle_log_data.append(r.get('https://api.brawlstars.com/v1/players/%23' + p + '/battlelog', headers=headers).json())
+            battle_log_data.append(r.get('https://api.brawlstars.com/v1/players/%23' + p + '/battlelog', headers=self.headers).json())
             if len(battle_log_data) % 50 == 0:
                 print ('{} battle logs recorded.'.format(len(battle_log_data)))
         return battle_log_data
@@ -97,16 +97,7 @@ class BSbattlelog():
         self.data = data
 
     def usage_3v3(self):
-        GG_wins = []
-        GG_loss = []
-        BB_wins = []
-        BB_loss = []
-        H_wins = []
-        H_loss = []
-        B_wins = []
-        B_loss = []
-        S_wins = []
-        S_loss = []
+        GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss, HZ_wins, HZ_loss = [], [], [], [], [], [], [], [], [], [], [], []
         for l in zip(self.data, self.player_id):
             for i in l[0]['items']:
                 if 'starPlayer' in i['battle']:
@@ -124,6 +115,10 @@ class BSbattlelog():
                                         B_wins.append(k['brawler']['name'])
                                     elif i['event']['mode'] == 'siege':
                                         S_wins.append(k['brawler']['name'])
+                                    elif i['event']['mode'] == 'hotZone':
+                                        HZ_wins.append(k['brawler']['name'])
+                                    else:
+                                        pass
                                 elif i['battle']['result'] == 'defeat':
                                     if i['event']['mode'] == 'gemGrab':
                                         GG_loss.append(k['brawler']['name'])
@@ -135,17 +130,14 @@ class BSbattlelog():
                                         B_loss.append(k['brawler']['name'])
                                     elif i['event']['mode'] == 'siege':
                                         S_loss.append(k['brawler']['name'])
-        return GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss    
+                                    elif i['event']['mode'] == 'hotZone':
+                                        HZ_loss.append(k['brawler']['name'])
+                                    else:
+                                        pass
+        return GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss, HZ_wins, HZ_loss  
 
     def usage_solo(self):
-        SS_wins = []
-        SS_loss = []
-        T_wins = []
-        T_loss = []
-        LS_wins = []
-        LS_loss = []
-        DS_wins = []
-        DS_loss = []
+        SS_wins, SS_loss, DS_wins, DS_loss = [], [], [], []
         for l in zip(self.data, self.player_id):
             for i in l[0]['items']:
                 if 'starPlayer' not in i['battle']:
@@ -155,17 +147,13 @@ class BSbattlelog():
                                 if i['battle']['rank'] < 5: 
                                     if i['event']['mode'] == 'soloShowdown':
                                         SS_wins.append(j['brawler']['name'])
-                                    elif i['event']['mode'] == 'takedown':
-                                        T_wins.append(j['brawler']['name'])
-                                    elif i['event']['mode'] == 'loneStar':
-                                        LS_wins.append(j['brawler']['name'])
+                                    else:
+                                        pass
                                 else:
                                     if i['event']['mode'] == 'soloShowdown':
                                         SS_loss.append(j['brawler']['name'])
-                                    elif i['event']['mode'] == 'takedown':
-                                        T_loss.append(j['brawler']['name'])
-                                    elif i['event']['mode'] == 'loneStar':
-                                        LS_loss.append(j['brawler']['name'])
+                                    else:
+                                        pass
                     elif i['event']['mode'] == 'duoShowdown':
                         for j in i['battle']['teams']:
                             for k in j:
@@ -174,17 +162,17 @@ class BSbattlelog():
                                         DS_wins.append(k['brawler']['name'])
                                     else:
                                         DS_loss.append(k['brawler']['name'])
-        return SS_wins, SS_loss, T_wins, T_loss, LS_wins, LS_loss, DS_wins, DS_loss
+        return SS_wins, SS_loss, DS_wins, DS_loss
 
     def makeDataFrame_usage_3v3(self, solo=False):
         if solo == False:
-            GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss = self.usage_3v3()
-            games = [GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss]
-            names = ['GemGrab', 'BrawlBall', 'Heist', 'Bounty', 'Siege']
+            GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss, HZ_wins, HZ_loss = self.usage_3v3()
+            games = [GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss, HZ_wins, HZ_loss]
+            names = ['GemGrab', 'BrawlBall', 'Heist', 'Bounty', 'Siege', 'HotZone']
         else:
-            SS_wins, SS_loss, T_wins, T_loss, LS_wins, LS_loss, DS_wins, DS_loss = self.usage_solo()
-            games = [SS_wins, SS_loss, T_wins, T_loss, LS_wins, LS_loss, DS_wins, DS_loss]
-            names = ['SoloShowdown', 'Takedown', 'LoneStar', 'DuoShowdown']
+            SS_wins, SS_loss, DS_wins, DS_loss = self.usage_solo()
+            games = [SS_wins, SS_loss, DS_wins, DS_loss]
+            names = ['SoloShowdown', 'DuoShowdown']
         k = []
         for i in range(0,len(games), 2):
             if games[i] != [] or games[i+1] != []:
@@ -242,7 +230,7 @@ class BSplot():
         elif graph_type == 'bar':
             df = df.sort_values('total', ascending=False)
             fig = px.bar(data_frame=df, x='brawlers', y='total', hover_data=['winrate'], color='winrate')
-            fig.update_layout(title={'text': 'Winrate per Brawlers ({})'.format(mode), 'y': 0.90, 'x':0.5, 'xanchor': 'center', 'yanchor': 'top'})
+            fig.update_layout(title={'text': 'Usage Rate per Brawlers ({})'.format(mode), 'y': 0.90, 'x':0.5, 'xanchor': 'center', 'yanchor': 'top'})
             fig.show()
 
     def plot_brawler_winrate(self, df, mode='global', graph_type='pie'):
