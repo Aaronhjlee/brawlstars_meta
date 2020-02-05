@@ -42,7 +42,7 @@ class BSdata():
         player_id, names = self.top_200()  
         account_info = []
         for i in player_id:
-            temp = (r.get('https://api.brawlstars.com/v1/players/%23' + i, headers=self.headers).json())
+            temp = r.get('https://api.brawlstars.com/v1/players/%23' + i, headers=self.headers).json()
             account_info.append(temp)
             if len(account_info) % 50 == 0:
                 print ('{} account information recorded.'.format(len(account_info)))
@@ -117,8 +117,6 @@ class BSbattlelog():
                                         S_wins.append(k['brawler']['name'])
                                     elif i['event']['mode'] == 'hotZone':
                                         HZ_wins.append(k['brawler']['name'])
-                                    else:
-                                        pass
                                 elif i['battle']['result'] == 'defeat':
                                     if i['event']['mode'] == 'gemGrab':
                                         GG_loss.append(k['brawler']['name'])
@@ -132,8 +130,6 @@ class BSbattlelog():
                                         S_loss.append(k['brawler']['name'])
                                     elif i['event']['mode'] == 'hotZone':
                                         HZ_loss.append(k['brawler']['name'])
-                                    else:
-                                        pass
         return GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss, HZ_wins, HZ_loss  
 
     def usage_solo(self):
@@ -141,7 +137,7 @@ class BSbattlelog():
         for l in zip(self.data, self.player_id):
             for i in l[0]['items']:
                 if 'starPlayer' not in i['battle']:
-                    if i['event']['mode'] != 'duoShowdown' and i['event']['mode'] != 'roboRumble'  and i['event']['mode'] != 'bigGame':
+                    if i['event']['mode'] != 'duoShowdown' and i['event']['mode'] != 'roboRumble' and i['event']['mode'] != 'bigGame' and i['event']['mode'] != 'bossFight':
                         for j in i['battle']['players']:
                             if l[1] in j['tag']:
                                 if i['battle']['rank'] < 5: 
@@ -188,10 +184,10 @@ class BSbattlelog():
             else:
                 k.append('No {} games recorded'.format(names[i//2]))
                 print ('No {} games recorded'.format(names[i//2]))
-        df = k[0]
+        df = pd.DataFrame()
         for i in k:
-            df.append(i)
-        df = k[0].append(k[1:])
+            if 'No' not in i:
+                df = df.append(i)
         return df
 
 
