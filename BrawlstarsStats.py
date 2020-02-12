@@ -270,39 +270,40 @@ class BSplot():
 Find win percentage per gamemode for a player
 '''
 
-def winrateTotal(log):
-    count = 0
-    for i in log['items']:
-        if i['battle']['mode'] != 'duoShowdown':
-            if i['battle']['trophyChange'] > 0:
-                count += 1
-        elif i['battle']['rank'] != 3:
-            if i['battle']['trophyChange'] > 0:
-                count += 1
-    return count/25
+class BSplayerstats():
+    def __init__(self, player_id, record, headers):
+        self.player_id = player_id
+        self.record = record
+        self.headers = headers
+        
+    def gather_account_info(self):
+        account_info = []
+        for i in self.player_id:
+            temp = r.get('https://api.brawlstars.com/v1/players/%23' + i, headers=self.headers).json()
+            account_info.append(temp)
+            if len(account_info) % 50 == 0:
+                print ('{} account information recorded.'.format(len(account_info)))
+        return account_info
+    
+    def make_Dataframe(self):
+        account_info = self.gather_account_info()
+        stats = []
+        items = ['highestTrophies', 'trophies', '3vs3Victories', 'expPoints']
+        for i in account_info:
+            temp = []
+            temp.append(i['name'])
+            temp.append(i['tag'])
+            for j in items:
+                temp.append(i[j])
+            stats.append(temp)
 
-def winrateGG(log):
-    wins = 0
-    count = 0
-    for i in log['items']:
-        if i['battle']['mode'] == 'gemGrab':
-            if i['battle']['trophyChange'] > 0:
-                wins += 1
-        else:
-            count += 1
-    return wins / (wins+count)
-
-def winrateBB(log):
-    wins = 0
-    count = 0
-    for i in log['items']:
-        if i['battle']['mode'] == 'brawlBall':
-            if i['battle']['trophyChange'] > 0:
-                wins += 1
-            else:
-                count += 1
-    return wins/(wins+count)
-
+        # List comprehension to combine by 3's
+        stats = [stats[i] + stats[i+1] + stats[i+2] for i in range(0,len(stats),3)]
+        
+        columns = ['name', 'userid', 'highestTrophies', 'trophies', '3vs3Victories', 'expPoints'] * 3
+        df = pd.DataFrame(stats, columns=columns)
+        df['victory'] = self.record
+        return df
 
 if __name__ == "__main__":
     country_code = 'global'
