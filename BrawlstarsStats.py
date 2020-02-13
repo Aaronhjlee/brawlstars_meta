@@ -97,7 +97,7 @@ class BSbattlelog():
         self.data = data
 
     def usage_3v3(self):
-        GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss, HZ_wins, HZ_loss = [], [], [], [], [], [], [], [], [], [], [], []
+        GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss = [], [], [], [], [], [], [], [], [], []
         for l in zip(self.data, self.player_id):
             for i in l[0]['items']:
                 if 'starPlayer' in i['battle']:
@@ -115,8 +115,6 @@ class BSbattlelog():
                                         B_wins.append(k['brawler']['name'])
                                     elif i['event']['mode'] == 'siege':
                                         S_wins.append(k['brawler']['name'])
-                                    elif i['event']['mode'] == 'hotZone':
-                                        HZ_wins.append(k['brawler']['name'])
                                 elif i['battle']['result'] == 'defeat':
                                     if i['event']['mode'] == 'gemGrab':
                                         GG_loss.append(k['brawler']['name'])
@@ -128,9 +126,7 @@ class BSbattlelog():
                                         B_loss.append(k['brawler']['name'])
                                     elif i['event']['mode'] == 'siege':
                                         S_loss.append(k['brawler']['name'])
-                                    elif i['event']['mode'] == 'hotZone':
-                                        HZ_loss.append(k['brawler']['name'])
-        return GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss, HZ_wins, HZ_loss  
+        return GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss  
 
     def usage_solo(self):
         SS_wins, SS_loss, DS_wins, DS_loss = [], [], [], []
@@ -162,9 +158,9 @@ class BSbattlelog():
 
     def makeDataFrame_usage_3v3(self, solo=False):
         if solo == False:
-            GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss, HZ_wins, HZ_loss = self.usage_3v3()
-            games = [GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss, HZ_wins, HZ_loss]
-            names = ['GemGrab', 'BrawlBall', 'Heist', 'Bounty', 'Siege', 'HotZone']
+            GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss = self.usage_3v3()
+            games = [GG_wins, GG_loss, BB_wins, BB_loss, H_wins, H_loss, B_wins, B_loss, S_wins, S_loss]
+            names = ['GemGrab', 'BrawlBall', 'Heist', 'Bounty', 'Siege']
         else:
             SS_wins, SS_loss, DS_wins, DS_loss = self.usage_solo()
             games = [SS_wins, SS_loss, DS_wins, DS_loss]
@@ -304,6 +300,7 @@ class BSplayerstats():
         df = pd.DataFrame(stats, columns=columns)
         df['victory'] = self.record
         return df
+
 
 if __name__ == "__main__":
     country_code = 'global'
