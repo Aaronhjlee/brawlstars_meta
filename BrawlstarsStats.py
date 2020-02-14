@@ -267,21 +267,86 @@ Find win percentage per gamemode for a player
 '''
 
 class BSplayerstats():
-    def __init__(self, player_id, record, headers):
+    def __init__(self, player_id, df_3v3, headers):
         self.player_id = player_id
-        self.record = record
-        self.headers = headers
-        
+        self.df_3v3 = df_3v3
+        self.headers = headers 
+    
+    def init_bl_data(self):
+        battle_log_data = []
+        for p in self.player_id:
+            battle_log_data.append(r.get('https://api.brawlstars.com/v1/players/%23' + p + '/battlelog', headers=self.headers).json())
+            if len(battle_log_data) % 150 == 0:
+                print ('{} battle logs recorded.'.format(len(battle_log_data)))
+        return battle_log_data
+    
+    def user_id_brawler_list(self):
+        battle_log_data = self.init_bl_data()
+        #list of brawler id and username 
+        user_id = []
+        for i in battle_log_data:
+            for j in i['items']:
+                if 'starPlayer' in j['battle']:
+                    for k in j['battle']['teams']:
+                        for l in k:
+                            user_id.append(l['tag'][1:])                     
+        brawler_info = []
+        for i in battle_log_data:
+            for j in i['items']:
+                if 'starPlayer' in j['battle']:
+                    for k in j['battle']['teams']:
+                        for l in k:
+                            brawler_info.append(l['brawler']['name'])
+        record = []
+        for l in zip(battle_log_data, player_id):
+            for j in l[0]['items']:
+                if 'starPlayer' in j['battle']:
+                    for k in j['battle']['teams']:
+                        for q in k:
+                            if l[1] in q['tag']:
+                                if j['battle']['result'] == 'victory':
+                                    record.append(1)
+                                    record.append(0)
+                                else:
+                                    record.append(0)
+                                    record.append(1)
+        return user_id, brawler_info, record
+    
+    def make_win_usage(self):
+        user_id, brawler_info, record = self.user_id_brawler_list()
+        df_winrate = self.df_3v3.groupby('brawlers').sum()
+        df_winrate['winrate'] = round(df_winrate['wins'] *100 / df_winrate['total'], 2)
+        df_winrate.reset_index(inplace=True)
+        winrate = []
+        for i in brawler_info:
+            winrate.append(df_winrate[df_winrate['brawlers']==i].iat[0,4])
+
+        df_usage = self.df_3v3.groupby('brawlers').sum()
+        df_usage['usage'] = np.round(df_usage.groupby('brawlers')['wins'].sum().values * 100 / self.df_3v3['total'].sum(), 2)
+        df_usage.reset_index(inplace=True)
+        usage = []
+        for i in brawler_info:
+            usage.append(df_usage[df_usage['brawlers']==i].iat[0,5])
+
+        # cuts into 3's
+        winrate = [[winrate[i], winrate[i+1], winrate[i+2]] for i in range(0,len(winrate),3)]
+        usage = [[usage[i], usage[i+1], usage[i+2]] for i in range(0,len(usage),3)]
+
+        return winrate, usage
+    
+    
     def gather_account_info(self):
+        user_id, brawler_info, record = self.user_id_brawler_list()
         account_info = []
-        for i in self.player_id:
+        for i in user_id:
             temp = r.get('https://api.brawlstars.com/v1/players/%23' + i, headers=self.headers).json()
             account_info.append(temp)
-            if len(account_info) % 50 == 0:
+            if len(account_info) % 150 == 0:
                 print ('{} account information recorded.'.format(len(account_info)))
         return account_info
     
     def make_Dataframe(self):
+        user_id, brawler_info, record = self.user_id_brawler_list()
         account_info = self.gather_account_info()
         stats = []
         items = ['highestTrophies', 'trophies', '3vs3Victories', 'expPoints']
@@ -292,13 +357,23 @@ class BSplayerstats():
             for j in items:
                 temp.append(i[j])
             stats.append(temp)
+        
+        # Get winrate and usage rate from top 200
+        winrate, usage = self.make_win_usage()
 
         # List comprehension to combine by 3's
         stats = [stats[i] + stats[i+1] + stats[i+2] for i in range(0,len(stats),3)]
         
         columns = ['name', 'userid', 'highestTrophies', 'trophies', '3vs3Victories', 'expPoints'] * 3
         df = pd.DataFrame(stats, columns=columns)
-        df['victory'] = self.record
+    
+        col = ['winrate'] * 3
+        col1 = ['usage'] * 3
+        df = pd.concat([df, pd.DataFrame(winrate, columns = col)], axis=1)
+        df = pd.concat([df, pd.DataFrame(usage, columns = col1)], axis=1)
+        
+        df['victory'] = record
+        
         return df
 
 
